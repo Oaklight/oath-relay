@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![Python](https://img.shields.io/pypi/pyversions/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![License](https://img.shields.io/pypi/l/oath-relay.svg)](LICENSE)
-[![Dependencies](https://img.shields.io/badge/runtime%20dependencies-none-brightgreen.svg)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/runtime%20deps-none%20on%203.11%2B-brightgreen.svg)](pyproject.toml)
 
 **English** | [中文](README_zh.md)
 
@@ -46,7 +46,7 @@ will ever work.
 pipx install oath-relay          # or: pip install oath-relay
 ```
 
-Python 3.11+. No runtime dependencies outside the standard library.
+Python 3.10+. No runtime dependencies on 3.11+; on 3.10 the only extra is `tomli`.
 
 ## Quick start
 

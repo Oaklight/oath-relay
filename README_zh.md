@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![Python](https://img.shields.io/pypi/pyversions/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![License](https://img.shields.io/pypi/l/oath-relay.svg)](LICENSE)
-[![Dependencies](https://img.shields.io/badge/runtime%20dependencies-none-brightgreen.svg)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/runtime%20deps-none%20on%203.11%2B-brightgreen.svg)](pyproject.toml)
 
 [English](README_en.md) | **中文**
 
@@ -44,7 +44,7 @@ Bitwarden 从 otpauth://hotp/ 算出的码 : 332512   （等于该 secret 的 TO
 pipx install oath-relay          # 或：pip install oath-relay
 ```
 
-需要 Python 3.11+。除标准库外没有任何运行时依赖。
+需要 Python 3.10+。3.11 及以上没有任何运行时依赖；3.10 只多一个 `tomli`。
 
 ## 快速开始
 

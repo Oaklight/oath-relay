@@ -10,10 +10,14 @@ import hashlib
 import hmac
 import os
 import secrets
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10
+    import tomli as tomllib
 
 from .otp import ALGORITHMS
 
