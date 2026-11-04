@@ -12,7 +12,7 @@ help:
 	  'make format   ruff format' \
 	  'make build    build sdist and wheel into dist/' \
 	  'make docker   build the container image' \
-	  'make run      run the container against ./config.toml and ./state'
+	  'make run      run the container against ./config.jsonc and ./state'
 
 venv:
 	$(PYTHON) -m venv $(VENV)
@@ -36,7 +36,7 @@ docker:
 
 run:
 	docker run --rm -p 127.0.0.1:8790:8790 \
-	  -v $(PWD)/config.toml:/config/config.toml:ro \
+	  -v $(PWD)/config.jsonc:/config/config.jsonc:ro \
 	  -v $(PWD)/state:/state $(IMAGE)
 
 clean:

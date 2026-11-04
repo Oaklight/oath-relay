@@ -22,38 +22,40 @@ from .store import StateError, StateStore
 __all__ = ["main"]
 
 _TEMPLATE = """\
-# oath-relay configuration.
-# Secrets live here; counters live in the state file. Never commit this file.
+{
+  // oath-relay configuration.
+  // Secrets live here; counters live in the state file. Never commit this file.
 
-[server]
-host = "127.0.0.1"
-port = 8790
-allow_peek = false
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8790,
+    "allow_peek": false
+  },
 
-[state]
-path = "./state/state.json"
+  "state": {
+    "path": "./state/state.json"
+  },
 
-[auth]
-# Leave a section empty to disable that scheme. With both empty the service
-# is unauthenticated and only safe on a private network.
-basic_user = ""
-basic_password_hash = ""
-bearer_tokens = []
+  "auth": {
+    // Leave a section empty to disable that scheme. With both empty the service
+    // is unauthenticated and only safe on a private network.
+    "basic_user": "",
+    "basic_password_hash": "",
+    "bearer_tokens": []
+  },
 
-[[tokens]]
-name = "example-hotp"
-type = "hotp"
-secret = "JBSWY3DPEHPK3PXP"
-digits = 6
-algorithm = "sha1"
-counter_start = 0
-
-# [[tokens]]
-# name = "example-totp"
-# type = "totp"
-# secret = "JBSWY3DPEHPK3PXP"
-# digits = 6
-# period = 30
+  "tokens": [
+    {
+      "name": "example-hotp",
+      "type": "hotp",
+      "secret": "JBSWY3DPEHPK3PXP",
+      "digits": 6,
+      "algorithm": "sha1",
+      "counter_start": 0
+    }
+    // ,{ "name": "example-totp", "type": "totp", "secret": "JBSWY3DPEHPK3PXP", "digits": 6, "period": 30 }
+  ]
+}
 """
 
 
@@ -200,8 +202,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-c",
         "--config",
-        help="path to config.toml (default: ./oath-relay.toml, /config/config.toml, "
-        "/etc/oath-relay/config.toml)",
+        help="path to config.jsonc (default: ./oath-relay.jsonc, "
+        "/config/config.jsonc, /etc/oath-relay/config.jsonc)",
     )
     # Allow --config both before and after the subcommand. The subparser copy
     # uses SUPPRESS so it does not overwrite a value given before the command.
@@ -241,7 +243,7 @@ def build_parser() -> argparse.ArgumentParser:
     resync.set_defaults(func=_cmd_resync)
 
     init = sub.add_parser("init", parents=[common], help="write a template configuration file")
-    init.add_argument("path", nargs="?", default="oath-relay.toml")
+    init.add_argument("path", nargs="?", default="oath-relay.jsonc")
     init.add_argument("-f", "--force", action="store_true")
     init.set_defaults(func=_cmd_init)
 

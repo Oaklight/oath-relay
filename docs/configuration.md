@@ -1,10 +1,21 @@
 # Configuration reference
 
-`oath-relay` reads TOML from `--config PATH`, or the first of
-`./oath-relay.toml`, `/config/config.toml`, `/etc/oath-relay/config.toml`.
+`oath-relay` reads **JSONC** — JSON with `//` line comments, `/* */` block
+comments, and trailing commas. The file is looked up in this order, or passed
+with `--config PATH`:
+
+1. `./oath-relay.jsonc`
+2. `/config/config.jsonc`
+3. `/etc/oath-relay/config.jsonc`
+
 Environment variables override file values.
 
-## `[server]`
+JSONC is used deliberately: every string must be quoted, so a secret can never
+be silently coerced. A format with implicit typing would turn `on` into `true`
+or `0777` into an octal integer, and the failure would surface as a rejected
+code rather than an error message.
+
+## `server`
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -12,7 +23,7 @@ Environment variables override file values.
 | `port` | int | `8790` | Bind port. |
 | `allow_peek` | bool | `false` | Enable `GET /api/tokens/{name}/peek`, which returns a code without advancing the counter. |
 
-## `[state]`
+## `state`
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -24,33 +35,35 @@ The state file is a JSON object keyed by token name:
 {"example": {"counter": 4, "updated_at": "2026-11-04T03:20:29Z"}}
 ```
 
-## `[auth]`
+## `auth`
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `basic_user` | string | `""` | Username for HTTP Basic auth. |
 | `basic_password_hash` | string | `""` | `scrypt$...` from `oath-relay hash`. |
-| `bearer_tokens` | array | `[]` | Accepted `Authorization: Bearer` values. Several allowed, for rotation. |
+| `bearer_tokens` | array of strings | `[]` | Accepted `Authorization: Bearer` values. Several allowed, for rotation. |
 
 Basic auth is active only when both `basic_user` and `basic_password_hash` are
 set. Bearer auth is active when the list is non-empty. With both inactive the
 service is unauthenticated and prints a warning at startup — only acceptable on
 a host reachable by you alone. `/healthz` is always unauthenticated.
 
-## `[[tokens]]`
+## `tokens`
 
-Repeat the block for each token.
+An array of objects; repeat for each token.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `name` | string | required | Identifier used in URLs. Letters, digits, `_`, `-`, `.`. |
 | `type` | string | `hotp` | `hotp` or `totp`. |
-| `secret` | string | required | Base32. Whitespace, case and padding are normalised. |
+| `secret` | string | required | Base32. **Must be quoted.** Whitespace, case and padding are normalised. |
 | `digits` | int | `6` | 1–10. |
 | `algorithm` | string | `sha1` | `sha1`, `sha256` or `sha512`. |
 | `period` | int | `30` | TOTP only. |
 | `counter_start` | int | `0` | HOTP only. Used until the first code is issued. |
 | `label` | string | `""` | Display name in the HTML page. |
+
+A non-string `secret` is rejected rather than coerced.
 
 ## Environment overrides
 

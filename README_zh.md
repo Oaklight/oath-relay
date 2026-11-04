@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![Python](https://img.shields.io/pypi/pyversions/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![License](https://img.shields.io/pypi/l/oath-relay.svg)](LICENSE)
-[![Dependencies](https://img.shields.io/badge/runtime%20deps-none%20on%203.11%2B-brightgreen.svg)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/runtime%20dependencies-none-brightgreen.svg)](pyproject.toml)
 
 [English](README_en.md) | **中文**
 
@@ -44,13 +44,13 @@ Bitwarden 从 otpauth://hotp/ 算出的码 : 332512   （等于该 secret 的 TO
 pipx install oath-relay          # 或：pip install oath-relay
 ```
 
-需要 Python 3.10+。3.11 及以上没有任何运行时依赖；3.10 只多一个 `tomli`。
+需要 Python 3.10+。没有任何运行时依赖。
 
 ## 快速开始
 
 ```bash
-oath-relay init                     # 生成 ./oath-relay.toml（权限 0600）
-$EDITOR oath-relay.toml             # 填入你的令牌
+oath-relay init                     # 生成 ./oath-relay.jsonc（权限 0600）
+$EDITOR oath-relay.jsonc            # 填入你的令牌
 oath-relay hash                     # 生成 auth.basic_password_hash
 oath-relay serve                    # http://127.0.0.1:8790
 ```
@@ -65,30 +65,31 @@ curl -X POST -H 'Authorization: Bearer <token>' \
 
 ## 配置
 
-静态配置（secret）放在 TOML 里；可变状态（计数器）放在单独的 JSON 文件里。
-这样状态文件可以安全地备份和对比，不必带着 secret 到处走。
+静态配置（secret）使用 JSONC —— 带注释和尾逗号的 JSON。可变状态（计数器）放在
+单独的文件里，这样状态文件可以安全地备份和对比，不必带着 secret 到处走。
 
-```toml
-[server]
-host = "127.0.0.1"
-port = 8790
-allow_peek = false
+```jsonc
+{
+  "server": { "host": "127.0.0.1", "port": 8790, "allow_peek": false },
+  "state":  { "path": "./state/state.json" },
 
-[state]
-path = "./state/state.json"
+  "auth": {
+    "basic_user": "alice",
+    "basic_password_hash": "scrypt$...",     // 由 `oath-relay hash` 生成
+    "bearer_tokens": ["long-random-string"]  // 可写多个，便于轮换
+  },
 
-[auth]
-basic_user = "alice"
-basic_password_hash = "scrypt$..."     # 由 `oath-relay hash` 生成
-bearer_tokens = ["long-random-string"] # 可写多个，便于轮换
-
-[[tokens]]
-name = "example"
-type = "hotp"          # 或 "totp"
-secret = "JBSWY3DPEHPK3PXP"
-digits = 6
-algorithm = "sha1"     # sha1 | sha256 | sha512
-counter_start = 0      # 仅在发出第一个码之前使用
+  "tokens": [
+    {
+      "name": "example",
+      "type": "hotp",            // 或 "totp"
+      "secret": "JBSWY3DPEHPK3PXP",
+      "digits": 6,
+      "algorithm": "sha1",       // sha1 | sha256 | sha512
+      "counter_start": 0         // 仅在发出第一个码之前使用
+    }
+  ]
+}
 ```
 
 环境变量覆盖格式为 `OATH_RELAY_<SECTION>__<KEY>`：
@@ -98,8 +99,8 @@ OATH_RELAY_SERVER__PORT=9000
 OATH_RELAY_AUTH__BEARER_TOKENS=one,two
 ```
 
-配置文件查找顺序：`./oath-relay.toml`、`/config/config.toml`、
-`/etc/oath-relay/config.toml`。可用 `--config PATH` 指定。
+配置文件查找顺序：`./oath-relay.jsonc`、`/config/config.jsonc`、
+`/etc/oath-relay/config.jsonc`。可用 `--config PATH` 指定。
 
 ## HTTP 接口
 
@@ -146,17 +147,33 @@ oath-relay init [PATH] [-f]              # 写出模板配置
 
 ## Docker
 
+镜像已发布为 `oaklight/oath-relay`。
+
 ```bash
-docker build -t oath-relay:dev .
-docker run --rm -p 127.0.0.1:8790:8790 \
-  -v "$PWD/config.toml:/config/config.toml:ro" \
+docker run -d --name oath-relay --restart always \
+  -p 127.0.0.1:8790:8790 \
+  -e PUID=$(id -u) -e PGID=$(id -g) \
+  -v "$PWD/config.jsonc:/config/config.jsonc:ro" \
   -v "$PWD/state:/state" \
-  oath-relay:dev
+  oaklight/oath-relay:latest
 ```
 
-首次运行时若没有挂载配置，`docker/entrypoint.sh` 会写出一份模板。容器以非
-root 用户（uid 10001）运行，`/state` 声明为卷。**从宿主机挂载的配置文件必须
-对该 uid 可读**，否则容器启动即退出。
+或者用 Compose（推荐，状态卷写得更明确）：
+
+```bash
+cp oath-relay.example.jsonc config.jsonc   # 编辑它，chmod 600
+docker compose up -d
+```
+
+**用户与用户组。** 容器只在启动瞬间以 root 运行，读取 `PUID`/`PGID` 后立即降权，
+因此状态文件的属主是你本人，而不是某个镜像内的固定 uid。请设置
+`PUID=$(id -u) PGID=$(id -g)`。也可以直接用 `--user` 启动：此时跳过降权，进程
+直接以该用户身份运行。
+
+**持久化。** `/state` 存放计数器，声明为卷，并在 `compose.yaml` 中绑定到
+`./state`。丢失它意味着每个 HOTP 令牌都和提供方失去同步 —— 请像保护凭据一样备份。
+
+从宿主机挂载的配置必须对 `PUID` 可读。
 
 ## 威胁模型
 

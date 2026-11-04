@@ -1,0 +1,47 @@
+# oath-relay — see README for the full configuration reference.
+#
+#   cp oath-relay.example.jsonc config.jsonc   # then edit it, chmod 600
+#   docker compose up -d
+#
+# The ./state bind mount is what makes HOTP counters survive restarts,
+# `docker compose down`, and image upgrades. Back it up like a credential:
+# losing it means every token is out of sync with its provider.
+
+services:
+  oath-relay:
+    image: oaklight/oath-relay:latest
+    # To build locally instead: comment out `image:` and uncomment:
+    # build: .
+    container_name: oath-relay
+    restart: always
+
+    ports:
+      - "127.0.0.1:8790:8790"
+
+    environment:
+      # Owning uid/gid of the state file on the host. Set these to
+      # `id -u` / `id -g` so ./state stays writable by you.
+      PUID: "${PUID:-10001}"
+      PGID: "${PGID:-10001}"
+      OATH_RELAY_CONFIG: /config/config.jsonc
+
+    volumes:
+      - ./config.jsonc:/config/config.jsonc:ro
+      - ./state:/state
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8790/healthz', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

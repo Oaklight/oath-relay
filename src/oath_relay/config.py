@@ -14,11 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10
-    import tomli as tomllib
-
+from ._vendor import jsonx
 from .otp import ALGORITHMS
 
 __all__ = [
@@ -33,9 +29,9 @@ __all__ = [
 ]
 
 DEFAULT_CONFIG_PATHS = (
-    "oath-relay.toml",
-    "/config/config.toml",
-    "/etc/oath-relay/config.toml",
+    "oath-relay.jsonc",
+    "/config/config.jsonc",
+    "/etc/oath-relay/config.jsonc",
 )
 
 _TOKEN_NAME_ALLOWED = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.")
@@ -196,7 +192,10 @@ def _parse_token(raw: Any, index: int) -> TokenConfig:
     if kind not in {"hotp", "totp"}:
         raise ConfigError(f"{where}.type must be 'hotp' or 'totp'")
 
-    secret = str(raw.get("secret", "")).strip()
+    secret_raw = raw.get("secret")
+    if not isinstance(secret_raw, str):
+        raise ConfigError(f"{where}.secret is required and must be a quoted string")
+    secret = secret_raw.strip()
     if not secret:
         raise ConfigError(f"{where}.secret is required")
 
@@ -310,12 +309,13 @@ def load_config(
 
     config_path = Path(path)
     try:
-        with config_path.open("rb") as fh:
-            raw = tomllib.load(fh)
+        text = config_path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigError(f"configuration file not found: {config_path}") from exc
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigError(f"{config_path} is not valid TOML: {exc}") from exc
+    try:
+        raw = jsonx.loads(text)
+    except ValueError as exc:
+        raise ConfigError(f"{config_path} is not valid JSONC: {exc}") from exc
 
     _apply_env(raw, environ)
     return parse_config(raw, source=str(config_path))

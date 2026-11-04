@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![Python](https://img.shields.io/pypi/pyversions/oath-relay.svg)](https://pypi.org/project/oath-relay/)
 [![License](https://img.shields.io/pypi/l/oath-relay.svg)](LICENSE)
-[![Dependencies](https://img.shields.io/badge/runtime%20deps-none%20on%203.11%2B-brightgreen.svg)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/runtime%20dependencies-none-brightgreen.svg)](pyproject.toml)
 
 **English** | [中文](README_zh.md)
 
@@ -46,13 +46,13 @@ will ever work.
 pipx install oath-relay          # or: pip install oath-relay
 ```
 
-Python 3.10+. No runtime dependencies on 3.11+; on 3.10 the only extra is `tomli`.
+Python 3.10+. No runtime dependencies.
 
 ## Quick start
 
 ```bash
-oath-relay init                     # writes ./oath-relay.toml (0600)
-$EDITOR oath-relay.toml             # add your tokens
+oath-relay init                     # writes ./oath-relay.jsonc (0600)
+$EDITOR oath-relay.jsonc            # add your tokens
 oath-relay hash                     # generate auth.basic_password_hash
 oath-relay serve                    # http://127.0.0.1:8790
 ```
@@ -67,30 +67,32 @@ Or open `http://127.0.0.1:8790/` in a browser and press the button.
 
 ## Configuration
 
-Static configuration (secrets) lives in TOML. Mutable state (counters) lives
-in a separate JSON file, so the state file is safe to back up and diff.
+Static configuration (secrets) lives in JSONC — JSON with comments and
+trailing commas. Mutable state (counters) lives in a separate file, so the
+state file is safe to back up and diff.
 
-```toml
-[server]
-host = "127.0.0.1"
-port = 8790
-allow_peek = false
+```jsonc
+{
+  "server": { "host": "127.0.0.1", "port": 8790, "allow_peek": false },
+  "state":  { "path": "./state/state.json" },
 
-[state]
-path = "./state/state.json"
+  "auth": {
+    "basic_user": "alice",
+    "basic_password_hash": "scrypt$...",     // from `oath-relay hash`
+    "bearer_tokens": ["long-random-string"]  // several allowed, for rotation
+  },
 
-[auth]
-basic_user = "alice"
-basic_password_hash = "scrypt$..."     # from `oath-relay hash`
-bearer_tokens = ["long-random-string"] # several allowed, for rotation
-
-[[tokens]]
-name = "example"
-type = "hotp"          # or "totp"
-secret = "JBSWY3DPEHPK3PXP"
-digits = 6
-algorithm = "sha1"     # sha1 | sha256 | sha512
-counter_start = 0      # used only until the first code is issued
+  "tokens": [
+    {
+      "name": "example",
+      "type": "hotp",            // or "totp"
+      "secret": "JBSWY3DPEHPK3PXP",
+      "digits": 6,
+      "algorithm": "sha1",       // sha1 | sha256 | sha512
+      "counter_start": 0         // used only until the first code is issued
+    }
+  ]
+}
 ```
 
 Environment overrides use `OATH_RELAY_<SECTION>__<KEY>`:
@@ -100,8 +102,8 @@ OATH_RELAY_SERVER__PORT=9000
 OATH_RELAY_AUTH__BEARER_TOKENS=one,two
 ```
 
-Config search order: `./oath-relay.toml`, `/config/config.toml`,
-`/etc/oath-relay/config.toml`. Override with `--config PATH`.
+Config search order: `./oath-relay.jsonc`, `/config/config.jsonc`,
+`/etc/oath-relay/config.jsonc`. Override with `--config PATH`.
 
 ## HTTP API
 
@@ -150,18 +152,35 @@ call are serialised by the same `flock`.
 
 ## Docker
 
+Published as `oaklight/oath-relay`.
+
 ```bash
-docker build -t oath-relay:dev .
-docker run --rm -p 127.0.0.1:8790:8790 \
-  -v "$PWD/config.toml:/config/config.toml:ro" \
+docker run -d --name oath-relay --restart always \
+  -p 127.0.0.1:8790:8790 \
+  -e PUID=$(id -u) -e PGID=$(id -g) \
+  -v "$PWD/config.jsonc:/config/config.jsonc:ro" \
   -v "$PWD/state:/state" \
-  oath-relay:dev
+  oaklight/oath-relay:latest
 ```
 
-`docker/entrypoint.sh` writes a template config on first run if none is
-mounted. The container runs as a non-root user (uid 10001) and declares
-`/state` as a volume. A config mounted from the host must be readable by that
-uid.
+Or with Compose, which keeps the state volume explicit:
+
+```bash
+cp oath-relay.example.jsonc config.jsonc   # then edit it, chmod 600
+docker compose up -d
+```
+
+**User and group.** The container starts as root only long enough to honour
+`PUID`/`PGID`, then drops privileges, so the state file is owned by you rather
+than by an arbitrary image uid. Set `PUID=$(id -u) PGID=$(id -g)`. Passing
+`--user` instead also works: the drop is skipped and the process runs directly
+as that user.
+
+**Persistence.** `/state` holds the counters. It is declared as a volume and
+bind-mounted to `./state` by `compose.yaml`. Losing it means every HOTP token
+is out of sync with its provider — back it up like a credential.
+
+A config mounted from the host must be readable by `PUID`.
 
 ## Threat model
 
