@@ -225,6 +225,12 @@ To check a real enrolment secret, set `OATH_RELAY_DUO_SECRET` and
 pytest. The test is skipped when they are unset, so secrets never land in the
 repository.
 
+## Security
+
+This service holds second-factor secrets. See [SECURITY.md](SECURITY.md) for
+the threat model, what is in and out of scope, and how to report a
+vulnerability privately. Do not open a public issue for security problems.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

@@ -211,6 +211,11 @@ ruff check src/ tests/ && ruff format --check src/ tests/
 `OATH_RELAY_DUO_CODES`（逗号分隔，从 counter 0 开始）。未设置时该测试自动跳过，
 因此 secret 不会进入仓库。
 
+## 安全
+
+这个服务保存二次验证密钥。威胁模型、范围界定，以及私下报告漏洞的方式见
+[SECURITY.md](SECURITY.md)。安全问题请不要开公开 issue。
+
 ## 许可证
 
 MIT，见 [LICENSE](LICENSE)。
